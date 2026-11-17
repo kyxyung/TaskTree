@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree Field Tasks – Implementation Guide</title>
+<style>
+  :root {
+    --bg:#fff; --bg-side:#f6f8fa; --text:#1f2328; --muted:#59636e; --border:#d1d9e0; --accent:#0969da;
+    --code-bg:#f6f8fa; --note-bg:#ddf4ff; --font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0d1117; --bg-side:#151b23; --text:#e6edf3; --muted:#9198a1; --border:#30363d; --accent:#4493f8; --code-bg:#151b23; --note-bg:#0c2d6b; }
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; scroll-padding-top:72px; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 var(--font); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+
+  .topbar { position:sticky; top:0; z-index:20; height:52px; display:flex; align-items:center; gap:12px; padding:0 16px;
+    background:var(--bg); border-bottom:1px solid var(--border); }
+  .topbar strong { font-weight:600; }
+  .topbar .sub { color:var(--muted); font-size:.85rem; }
+  #menu { display:none; background:none; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:4px 10px; font:inherit; cursor:pointer; }
+
+  .layout { display:grid; grid-template-columns:260px minmax(0,1fr); max-width:1200px; margin:0 auto; }
+  aside { position:sticky; top:52px; align-self:start; height:calc(100vh - 52px); overflow-y:auto; padding:20px 12px 40px 16px;
+    border-right:1px solid var(--border); background:var(--bg-side); font-size:.88rem; }
+  aside ul { list-style:none; margin:0; padding:0; }
+  aside .group > .row { display:flex; align-items:center; }
+  aside .row a { flex:1; display:block; padding:5px 8px; border-radius:6px; color:var(--muted); }
+  aside .row a:hover { background:var(--border); text-decoration:none; color:var(--text); }
+  aside a.active { color:var(--accent); font-weight:600; }
+  aside .toggle { background:none; border:0; color:var(--muted); cursor:pointer; width:22px; font-size:.7rem; transition:transform .15s; }
+  aside .group.open > .row .toggle { transform:rotate(90deg); }
+  aside .group > ul { display:none; margin:0 0 4px 12px; padding-left:8px; border-left:1px solid var(--border); }
+  aside .group.open > ul { display:block; }
+
+  main { padding:32px 40px 96px; }
+  article { max-width:860px; margin:0 auto; }
+  h1 { font-size:1.9rem; font-weight:600; margin:0 0 8px; letter-spacing:-.01em; }
+  h2 { font-size:1.4rem; font-weight:600; margin:48px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  h3 { font-size:1.1rem; font-weight:600; margin:28px 0 8px; }
+  h2 .anchor, h3 .anchor { margin-left:8px; opacity:0; color:var(--muted); font-weight:400; }
+  h2:hover .anchor, h3:hover .anchor { opacity:1; }
+  .lead { color:var(--muted); margin:0 0 8px; }
+  p, li { max-width:75ch; } li { margin:3px 0; }
+  .muted { color:var(--muted); }
+
+  code { font-family:var(--mono); font-size:.86em; background:var(--code-bg); border:1px solid var(--border); padding:1px 5px; border-radius:5px; }
+  .codewrap { position:relative; }
+  pre { margin:12px 0; padding:14px 16px; background:var(--code-bg); border:1px solid var(--border); border-radius:6px; overflow-x:auto; font-size:.84rem; line-height:1.5; }
+  pre code { background:none; border:0; padding:0; font-size:inherit; }
+  .copy { position:absolute; top:8px; right:8px; font:inherit; font-size:.75rem; padding:2px 8px; border:1px solid var(--border); border-radius:5px;
+    background:var(--bg); color:var(--muted); cursor:pointer; }
+  .copy:hover { color:var(--text); }
+
+  blockquote.prompt { margin:12px 0; padding:12px 16px; white-space:pre-wrap; border-left:3px solid var(--border); background:var(--bg-side);
+    border-radius:0 6px 6px 0; font-size:.9rem; color:var(--text); }
+  .note { background:var(--note-bg); border-radius:6px; padding:10px 14px; max-width:none; font-size:.9rem; }
+
+  table { display:block; overflow-x:auto; border-collapse:collapse; width:100%; margin:12px 0; font-size:.9rem; }
+  th, td { text-align:left; padding:8px 12px; border:1px solid var(--border); vertical-align:top; }
+  th { background:var(--bg-side); font-weight:600; }
+
+  ol.steps { padding-left:20px; } ol.steps li { margin:10px 0; } ol.steps li b { display:block; }
+
+  @media (max-width: 860px) {
+    #menu { display:inline-block; }
+    .layout { display:block; }
+    aside { position:fixed; inset:52px 0 0 0; height:auto; z-index:15; display:none; border-right:0; }
+    aside.show { display:block; }
+    main { padding:20px 16px 72px; }
+    h1 { font-size:1.6rem; }
+  }
+  @media print { aside, .topbar, .copy { display:none; } .layout { display:block; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button id="menu" aria-expanded="false" aria-controls="toc">Menu</button>
+  <strong>Tree Field Tasks</strong><span class="sub">Implementation Guide</span>
+</div>
+<div class="layout">
+  <aside id="toc" aria-label="Table of contents"></aside>
+  <main>
+  <article>
+    <h1>Implementation Guide</h1>
+    <p class="lead">How the Tree Field Task Management tool was designed, built, containerised and verified using an agentic coding workflow (Claude Code).</p>
+
+<h2 id="prompt">Original prompts</h2>
+<h3>Prompt 1 – initial brief (verbatim)</h3>
+<blockquote class="prompt">Context:
+Please go through the Practical Coding Assessment document provided to candidates.
+
+Business nature: Smart City Management, Municipal Landscape &amp; Parks, Tree Asset &amp; Risk Management, Urban Greening or Forestry Information Systems. Basically its involving tree maintenance operations.
+
+Business workflow: Admin will dispatch task orders to field workers, and field workers execute the task in outdoor and report back to admin.
+
+User Role involved: Admin &amp; Field Worker only.
+
+Role action: Admin is responsible to create &amp; dispatch task to Field worker; Field worker is responsible to transition the task state or fill in any neccessary field feedback if there's any for the visibility of a task status for admin to view.
+
+Business context: Admin will create a field task order and will need to linked to a Tree ID &amp; Task Type. Tree ID is refering to trees that already being purchased and tagged previously. Task Type consist of Pruning, Pest Control, Hazard Removal;
+Admin will need to dispatch the task to any 1 of the field worker, the task is being dispatch directly, field worker no need to accept and cannot reject the task. After field worker is being assigned to a task, they will start to work on it, and the main responsible for field worker is to update the task states. Task States consist of Pending, In Progress, Completed in sequence, 1 more state which is Suspended if blocked on-site. Field worker also can write down any necessary field feedback if any in the Task assigned.
+
+Architecture design: Use .net10 &amp; angular 22 as the tech stack. use frontend &amp; backend repository separation design (polyrepo) to ensure clear separation of concern, independant development, better streamlined in ci/cd deployment workflow.
+Build a lightweight, Single page application with 2-role based without the needs to implement any complicate authentication/login workflow. The application should prioritize simplicity, clean architecture, maintainability, and a modern user experience. Since this is a lightweight project, provide a simple role toggle between Admin &amp; Field worker, both role should be accessible from the same page, switching role should dynamically update the displayed UI &amp; available action. For the UI viewing, use kanboard board as the display illustration, but also require a table listing to view.
+
+Backend Requirements: Implement small RESTful APIs endpoint for task creation, assignment, retrieval, status updates. Separate API controllers, business logic, data access responsibilities. Implement Data Annotations for basic request validation &amp; consistent error handling, make sure all the failure return proper error message. Ensure the frontend is well integrated with backend through API rather than hardcoded any business data
+
+Frontend Requirements: Implement loading, empty, success, and error states. Ensure UI is responsive across desktop &amp; mobile devices. Keep the implementation lightweight and simple.
+
+Engineering principles: Follow the best practice of SOLID, DRY, and KISS principles where appropriate. Avoid any overengineering and unnecessary abstractions. Prioritize readable, maintanable, reusable code. We are developing code that is scalable &amp; design for future extensible when there is needed without introducing any unnecessary complexity. Use Docker to package and run the Angular frontend and .NET backend in separate containers, ensuring consistent environments. Use Docker Compose to orchestrate both containers, enabling the entire application to be started and managed with a single command.
+
+Expected outcome: An administrator can create a task, assign it to a field worker, and immediately see the new assignment on the dashboard. The assigned task should also appear in the Field Worker view.</blockquote>
+
+<h3>Prompt 2 – follow-up (verbatim)</h3>
+<blockquote class="prompt">1. Make the kanban board able to drag &amp; drop by their sequence, without able to jumping queue (e.g. Pending only can go to In progress, in progress cannot go back to pending)
+
+2. Use Sqlite to store the data in local machine. Do not store anything in local browser</blockquote>
+
+<h2 id="scope">Scope (from the assessment PDF)</h2>
+<div>
+<ul>
+  <li><b>Task:</b> lightweight full-stack tool (frontend UI + backend API) for tree field task management, 60–90 minutes, any stack, must use an agentic coding workflow.</li>
+  <li><b>Form:</b> one clean frontend page + a backend API service; a simple role toggle for <i>Admin Dispatch</i> and <i>Field Worker Execution</i>; no complex auth.</li>
+  <li><b>Flow 1:</b> create a field task linked to a Tree ID and Task Type; list tasks; filter by status.</li>
+  <li><b>Flow 2:</b> worker transitions PENDING → IN_PROGRESS → COMPLETED (or SUSPENDED if blocked) and records field feedback.</li>
+  <li><b>Deliverables:</b> runnable app for a live demo, plus a summary of how the agent was driven through design, coding and edge-case verification (sections 3 and 8).</li>
+</ul>
+</div>
+
+<h2 id="workflow">How the agent was driven, step by step</h2>
+<ol class="steps">
+  <li><b>Read the real requirement first</b>Opened the PDF before writing code and checked the toolchain (.NET 10 SDK, Node versions, Docker). Found Angular 22 needs Node 24, and that the Docker daemon was off.</li>
+  <li><b>Fixed the rules before coding</b>Turned the prose into explicit rules: direct dispatch (no accept/reject), forward-only state machine, Suspended needs a reason, Completed is final, reassign allowed until completed. Unstated details got sensible defaults (Suspended may resume).</li>
+  <li><b>Backend first, tests alongside</b>Built the API in layers (controllers → services → repositories), then wrote integration tests against the real HTTP pipeline. Test run caught one defect: errors were not returned as <code>application/problem+json</code>; fixed by routing the exception handler through <code>IProblemDetailsService</code>.</li>
+  <li><b>Frontend against the real API</b>Scaffolded Angular 22, kept one store for state, used <code>httpResource</code> for reads so nothing is hardcoded. Proxy config for local dev, nginx proxy in Docker.</li>
+  <li><b>Containerised and smoke-tested the whole stack</b>Started Docker, ran <code>docker compose up --build</code>, and exercised create, assign, illegal transition and bad input through the nginx proxy (the same path the browser uses). A rough validation message was found and cleaned up.</li>
+  <li><b>Follow-up 1: drag &amp; drop</b>Native HTML5 drag and drop (no extra library), restricted to the same transition table the API uses.</li>
+  <li><b>Follow-up 2: SQLite</b>Replaced the in-memory store behind the existing repository interfaces with EF Core + SQLite. Controllers and the state machine needed no change beyond going async, which is the payoff of the layering. Verified data survives an API restart.</li>
+</ol>
+
+<h2 id="arch">Architecture</h2>
+<pre><code>TreeTask/                    (3 independent git repos = polyrepo)
+├── api/                     .NET 10 Web API          → its own Dockerfile, tests, CI
+│   ├── src/TreeTask.Api/
+│   │   ├── Controllers/     HTTP only: routing, status codes
+│   │   ├── Services/        business rules (state machine, validation of references)
+│   │   ├── Repositories/    EF Core + SQLite data access, AppDbContext, seed data
+│   │   ├── Models/          entities and enums
+│   │   ├── Dtos/            request/response contracts + Data Annotations
+│   │   └── Infrastructure/  exceptions → problem-details mapping
+│   └── tests/TreeTask.Api.Tests/   xUnit integration tests
+├── web/                     Angular 22 SPA           → its own Dockerfile (nginx), tests, CI
+│   └── src/app/
+│       ├── core/            models, TaskStore (signals + API calls)
+│       └── features/        create form, board, table, task actions
+├── data/treetask.db         SQLite file on the local machine (git-ignored)
+└── docker-compose.yml       the only thing the root repo owns
+
+Browser ──► nginx (web, :8080) ──/api──► .NET API (:8080 internal) ──► SQLite (/data bind mount)</code></pre>
+<p>Why polyrepo: each side builds, tests and deploys on its own. They share only the HTTP contract, so they can have separate pipelines and release cadence. The root repo holds orchestration only.</p>
+
+<h2 id="api">Backend</h2>
+<h3>Endpoints</h3>
+<table>
+<tr><th>Method</th><th>Route</th><th>Purpose</th><th>Errors</th></tr>
+<tr><td>GET</td><td><code>/api/trees</code>, <code>/api/workers</code></td><td>Reference data for the form (trees already purchased and tagged; field workers)</td><td>—</td></tr>
+<tr><td>GET</td><td><code>/api/tasks?status=&amp;assigneeId=</code></td><td>List and filter (Field Worker view uses <code>assigneeId</code>)</td><td>400 bad enum</td></tr>
+<tr><td>GET</td><td><code>/api/tasks/{id}</code></td><td>One task</td><td>404</td></tr>
+<tr><td>POST</td><td><code>/api/tasks</code></td><td>Create and dispatch (assignee is part of creation, no accept/reject)</td><td>400 validation, 404 unknown tree/worker</td></tr>
+<tr><td>PUT</td><td><code>/api/tasks/{id}/assignee</code></td><td>Admin reassigns</td><td>404, 409 if completed</td></tr>
+<tr><td>PATCH</td><td><code>/api/tasks/{id}/status</code></td><td>Worker moves state, with feedback</td><td>404, 409 illegal move, 409 suspend without feedback</td></tr>
+</table>
+
+<h3>State machine (enforced in <code>TaskService</code>)</h3>
+<pre><code>Pending ──► InProgress ──► Completed (final)
+                │  ▲
+                ▼  │
+             Suspended        (suspend requires feedback; resume goes back to InProgress)</code></pre>
+<p>One dictionary holds the allowed transitions. Anything else returns <b>409 Conflict</b> with a plain-language message, e.g. <i>"Cannot move a task from Pending to Completed."</i></p>
+
+<h3>Validation and errors</h3>
+<ul>
+  <li>Data Annotations on request DTOs: <code>[Required]</code>, <code>[StringLength]</code>, <code>[EnumDataType]</code>. Enum fields are nullable so a missing value is caught as "required" rather than defaulting silently.</li>
+  <li>One <code>IExceptionHandler</code> maps <code>NotFoundException</code> → 404, <code>BusinessRuleException</code> → 409, malformed body → 400, anything else → 500 (logged, generic message to the client).</li>
+  <li>A custom model-state response factory hides serializer internals, so a bad enum returns <code>'type' has an invalid value.</code>.</li>
+  <li>All failures use RFC 7807 <code>application/problem+json</code>, so the frontend has one parser.</li>
+</ul>
+
+<h3>Data (SQLite via EF Core)</h3>
+<ul>
+  <li>Entities: <code>Tree</code>, <code>Worker</code> (seeded with <code>HasData</code>), <code>FieldTask</code> (enums stored as readable strings, index on assignee).</li>
+  <li>Connection string comes from config: default <code>treetask.db</code> locally, <code>/data/treetask.db</code> in Docker, a temp file per test run.</li>
+  <li><code>EnsureCreated()</code> on startup keeps the demo zero-setup. Move to EF migrations when the schema starts to evolve.</li>
+  <li>Repositories are interfaces (<code>ITaskRepository</code>, <code>ILookupRepository</code>); the in-memory → SQLite swap changed only the implementation.</li>
+</ul>
+
+<h2 id="fe">Frontend</h2>
+<table>
+<tr><th>Piece</th><th>Responsibility</th></tr>
+<tr><td><code>core/task.store.ts</code></td><td>Single source of UI state as signals: role, view, status filter, selected worker. Reads via <code>httpResource</code> (auto-reload when filters change). Mutations via <code>HttpClient</code>, then reload, with a toast. Converts API errors into one readable message.</td></tr>
+<tr><td><code>create-task-form.ts</code></td><td>Admin only. Reactive form; trees and workers come from the API; required-field validation before submit.</td></tr>
+<tr><td><code>task-board.ts</code></td><td>Kanban: 4 columns computed from the task list; drag and drop; suspend-reason dialog.</td></tr>
+<tr><td><code>task-table.ts</code></td><td>Table listing with status badge, feedback, last update.</td></tr>
+<tr><td><code>task-actions.ts</code></td><td>Role-aware actions shared by board and table (DRY): admin reassigns, worker gets feedback box and next-step buttons.</td></tr>
+<tr><td><code>app.html</code></td><td>Role toggle, board/table switch, status filter, refresh, and the four UI states.</td></tr>
+</table>
+
+<h3>Role toggle</h3>
+<p>Admin sees the dispatch form and reassign controls. Field Worker picks "Acting as" a worker, sees only their own tasks (server-side <code>assigneeId</code> filter) and can transition state. The toggle is a demo convenience, not security; the API has no auth by design.</p>
+
+<h3>UI states</h3>
+<table>
+<tr><th>State</th><th>Behaviour</th></tr>
+<tr><td>Loading</td><td>Spinner while the first load or a filter change is in flight.</td></tr>
+<tr><td>Empty</td><td>Different message per role and filter ("No tasks yet. Create one above." / "Nothing dispatched to you yet.").</td></tr>
+<tr><td>Success</td><td>Toast after create, reassign or status update.</td></tr>
+<tr><td>Error</td><td>Load failure shows a banner with Retry; action failures show an error toast with the API's message; network down gets its own text.</td></tr>
+</table>
+
+<h3>Drag and drop rules</h3>
+<ul>
+  <li>Native HTML5 drag and drop; no library, to keep the bundle small (~67 kB transferred).</li>
+  <li>Only Field Worker can drag, and only cards that have a next step. Completed cards are fixed.</li>
+  <li>Drop targets come from the same transition table as the API. Valid columns highlight, others dim and reject the drop, so no skipping and no moving backward.</li>
+  <li>Dropping on Suspended opens a dialog that requires a reason. The server still enforces every rule if the UI is bypassed.</li>
+</ul>
+
+<h3>Responsive and storage</h3>
+<ul>
+  <li>Board is 4 columns on desktop, 2 on tablet, 1 on phone. The table scrolls horizontally on small screens. The toolbar wraps.</li>
+  <li>Nothing is written to localStorage, sessionStorage or cookies. State lives in memory and in SQLite on the server side.</li>
+</ul>
+
+<h2 id="docker">Docker and run instructions</h2>
+<ul>
+  <li><b>api image:</b> multi-stage; SDK 10 builds, ASP.NET 10 runtime runs as non-root. Restores before copying sources to cache layers.</li>
+  <li><b>web image:</b> multi-stage; Node 24 builds, nginx serves the static files and proxies <code>/api</code> to the API container (same origin, no CORS in the browser).</li>
+  <li><b>compose:</b> two services, one published port, and the <code>./data</code> bind mount for the SQLite file.</li>
+</ul>
+<pre><code># start everything
+docker compose up --build        # → http://localhost:8080
+
+# local development
+dotnet run --project api/src/TreeTask.Api --urls http://localhost:5080
+cd web &amp;&amp; npm start                 # proxies /api to :5080 (use Node 24)
+
+# tests
+dotnet test api/tests/TreeTask.Api.Tests
+cd web &amp;&amp; npm test
+
+# reset data
+docker compose down &amp;&amp; rm data/treetask.db*</code></pre>
+
+<h2 id="verify">Verification and edge cases</h2>
+<table>
+<tr><th>Case</th><th>Expected</th><th>Checked by</th></tr>
+<tr><td>Create task, then list by assignee</td><td>Appears as Pending in that worker's view</td><td>API test + smoke test</td></tr>
+<tr><td>Missing tree / invalid type</td><td>400 with readable message</td><td>API test</td></tr>
+<tr><td>Unknown tree or worker</td><td>404</td><td>API test</td></tr>
+<tr><td>Pending → Completed (skip)</td><td>409</td><td>API test + smoke test</td></tr>
+<tr><td>Suspend without feedback</td><td>409; with feedback 200; then resume 200</td><td>API test</td></tr>
+<tr><td>Change a Completed task (status or assignee)</td><td>409</td><td>API test</td></tr>
+<tr><td>Unknown task id</td><td>404 as <code>problem+json</code></td><td>API test</td></tr>
+<tr><td>Data survives API restart</td><td>Task still listed</td><td>Manual restart in Docker</td></tr>
+<tr><td>Error message parsing, worker filter query, transition table</td><td>As specified</td><td>5 frontend unit tests</td></tr>
+</table>
+<p class="note">Results: 10 backend tests and 5 frontend tests pass; both Docker images build; stack runs under compose. Not yet done: a browser click-through of the drag and drop (no browser automation was available in the session), so run that once before the live demo.</p>
+
+<h2 id="decisions">Decisions and trade-offs</h2>
+<table>
+<tr><th>Decision</th><th>Reason</th></tr>
+<tr><td>Rules live in the service, UI only mirrors them</td><td>One source of truth; UI hints can never grant illegal moves.</td></tr>
+<tr><td>Suspended can resume; Completed is final</td><td>The brief did not say; a blocked task must be able to continue, a finished one should not reopen.</td></tr>
+<tr><td>Suspend requires feedback</td><td>Admin visibility is the point of feedback; a silent suspend is useless.</td></tr>
+<tr><td>Feedback sent with the status change</td><td>One call, no separate feedback endpoint (KISS).</td></tr>
+<tr><td>Guid task ids, string tree/worker ids</td><td>Tree tags like <code>TREE-01</code> are real business identifiers.</td></tr>
+<tr><td>Signals + <code>httpResource</code>, no NgRx</td><td>Small state; a store class is enough.</td></tr>
+<tr><td>Native drag and drop</td><td>No dependency; enough for four columns. Touch drag is weaker, so buttons remain as the mobile path.</td></tr>
+<tr><td>No auth, role is a client toggle</td><td>Explicit in the brief. Do not ship this beyond a demo.</td></tr>
+<tr><td><code>EnsureCreated</code> over migrations</td><td>Zero setup for the demo; trivial to replace later.</td></tr>
+<tr><td>No pagination yet</td><td>Small data set. Add server-side paging when the list grows.</td></tr>
+</table>
+
+<h2 id="future">Possible next steps</h2>
+<ul>
+  <li>EF migrations and a CI pipeline per repo (build, test, image push).</li>
+  <li>Real authentication and server-side role checks; the role then comes from the token.</li>
+  <li>Server-side paging and search on <code>/api/tasks</code>; task history (audit of each transition with time and actor).</li>
+  <li>Photos and GPS capture as field feedback; due dates and priority; hazard tasks escalated to the top.</li>
+  <li>Browser end-to-end tests (Playwright) for the drag and drop and role switching.</li>
+  <li>Live updates (SignalR or polling) so admin sees worker changes without pressing Refresh.</li>
+</ul>
+
+
+  </article>
+  </main>
+</div>
+<script>
+(() => {
+  const article = document.querySelector('article');
+  const heads = [...article.querySelectorAll('h2, h3')];
+  const slug = t => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  // ids + anchor links
+  heads.forEach(h => {
+    if (!h.id) h.id = slug(h.textContent);
+    const a = document.createElement('a');
+    a.className = 'anchor'; a.href = '#' + h.id; a.textContent = '#'; a.setAttribute('aria-label', 'Link to this section');
+    h.appendChild(a);
+  });
+
+  // build nested TOC: h2 groups with h3 children
+  const toc = document.getElementById('toc');
+  const root = document.createElement('ul');
+  let group = null, sub = null;
+  const link = h => { const a = document.createElement('a'); a.href = '#' + h.id; a.textContent = h.firstChild.textContent; return a; };
+  heads.forEach(h => {
+    if (h.tagName === 'H2') {
+      group = document.createElement('li'); group.className = 'group';
+      const row = document.createElement('div'); row.className = 'row';
+      row.append(link(h)); group.append(row); sub = null; root.append(group);
+    } else if (group) {
+      if (!sub) {
+        sub = document.createElement('ul'); group.append(sub);
+        const t = document.createElement('button'); t.className = 'toggle'; t.textContent = '▶';
+        t.setAttribute('aria-label', 'Expand section');
+        t.onclick = () => t.closest('.group').classList.toggle('open');
+        group.querySelector('.row').append(t);
+      }
+      const li = document.createElement('li'); li.append(link(h)); sub.append(li);
+    }
+  });
+  toc.append(root);
+
+  // scroll spy
+  const links = new Map([...toc.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+  const spy = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.classList.remove('active'));
+      const a = links.get(e.target.id); if (!a) return;
+      a.classList.add('active');
+      const g = a.closest('.group'); if (g) { g.classList.add('open'); }
+    });
+  }, { rootMargin: '-60px 0px -75% 0px' });
+  heads.forEach(h => spy.observe(h));
+
+  // mobile menu
+  const menu = document.getElementById('menu');
+  menu.onclick = () => { const s = toc.classList.toggle('show'); menu.setAttribute('aria-expanded', s); };
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') { toc.classList.remove('show'); menu.setAttribute('aria-expanded', false); } });
+
+  // copy buttons on code blocks
+  article.querySelectorAll('pre').forEach(pre => {
+    const wrap = document.createElement('div'); wrap.className = 'codewrap';
+    pre.replaceWith(wrap); wrap.append(pre);
+    const b = document.createElement('button'); b.className = 'copy'; b.textContent = 'Copy';
+    b.onclick = async () => { try { await navigator.clipboard.writeText(pre.innerText); b.textContent = 'Copied'; } catch { b.textContent = 'Failed'; } setTimeout(() => b.textContent = 'Copy', 1500); };
+    wrap.append(b);
+  });
+})();
+</script>
+</body>
+</html>

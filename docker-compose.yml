@@ -1,0 +1,14 @@
+# Starts the whole app: docker compose up --build  ->  http://localhost:8080
+services:
+  api:
+    build: ./api
+    volumes:
+      - ./data:/data   # SQLite file lives on the local machine at ./data/treetask.db
+    restart: unless-stopped
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - api

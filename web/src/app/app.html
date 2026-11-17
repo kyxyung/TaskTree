@@ -1,0 +1,146 @@
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">T</span><span class="brand-name">Tree Tasks</span>
+    </div>
+    <span class="topbar-note">Field operations</span>
+    <div class="role-switch" role="group" aria-label="Role">
+      <button
+        type="button"
+        [class.active]="store.role() === 'admin'"
+        [attr.aria-pressed]="store.role() === 'admin'"
+        (click)="store.role.set('admin')"
+      >
+        Admin
+      </button>
+      <button
+        type="button"
+        [class.active]="store.role() === 'worker'"
+        [attr.aria-pressed]="store.role() === 'worker'"
+        (click)="store.role.set('worker')"
+      >
+        Field worker
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">
+        {{ store.role() === 'admin' ? 'Dispatch workspace' : 'Field workspace' }}
+      </p>
+      <h1>{{ store.role() === 'admin' ? 'Manage field work' : 'Your assigned work' }}</h1>
+      <p>
+        {{
+          store.role() === 'admin'
+            ? 'Create and track tree maintenance tasks.'
+            : 'Review assignments and record progress from the field.'
+        }}
+      </p>
+    </div>
+  </div>
+  @if (store.role() === 'admin') {
+    <app-create-task-form />
+  } @else {
+    <div class="card worker-pick">
+      <div class="field worker-select">
+        <span class="field-label">Acting as</span>
+        <app-search-select
+          ariaLabel="Acting as"
+          [options]="workerOptions()"
+          [value]="store.workerId()"
+          (valueChange)="store.selectWorker($event)"
+        />
+      </div>
+      <span class="muted small">Only tasks assigned to this worker are shown.</span>
+    </div>
+  }
+
+  <section class="section" aria-label="Task list">
+    <div class="toolbar">
+      <h2>{{ store.role() === 'admin' ? 'All tasks' : 'My tasks' }}</h2>
+      <div class="filter-control">
+        <span>Status</span>
+        <app-search-select
+          ariaLabel="Filter by status"
+          [options]="statusOptions"
+          [value]="store.statusFilter()"
+          (valueChange)="setStatusFilter($event)"
+        />
+      </div>
+      <div class="view-switch" role="group" aria-label="View">
+        <button
+          type="button"
+          [class.active]="store.view() === 'board'"
+          [attr.aria-pressed]="store.view() === 'board'"
+          (click)="store.view.set('board')"
+        >
+          Board
+        </button>
+        <button
+          type="button"
+          [class.active]="store.view() === 'table'"
+          [attr.aria-pressed]="store.view() === 'table'"
+          (click)="store.view.set('table')"
+        >
+          Table
+        </button>
+      </div>
+      <button
+        type="button"
+        class="btn refresh-btn"
+        [disabled]="refreshing()"
+        [attr.aria-label]="refreshing() ? 'Refreshing tasks' : 'Refresh tasks'"
+        (click)="refreshTasks()"
+      >
+        <svg
+          class="refresh-icon"
+          [class.spinning]="refreshing()"
+          viewBox="0 0 20 20"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M16.5 9a6.5 6.5 0 1 0 1 3.5M16.5 4.5V9H12"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span>{{ refreshing() ? 'Refreshing' : 'Refresh' }}</span>
+      </button>
+    </div>
+
+    @if (store.tasks.status() === 'loading') {
+      <p class="state" role="status"><span class="spinner"></span> Loading tasks…</p>
+    } @else if (store.loadError(); as err) {
+      <div class="state error" role="alert">
+        <p>{{ err }}</p>
+        <button type="button" class="btn" (click)="store.tasks.reload()">Retry</button>
+      </div>
+    } @else if (!store.taskList().length) {
+      <p class="state">
+        {{
+          store.statusFilter()
+            ? 'No tasks match this status.'
+            : store.role() === 'admin'
+              ? 'No tasks yet. Create one above.'
+              : 'Nothing dispatched to you yet.'
+        }}
+      </p>
+    } @else if (store.view() === 'board') {
+      <app-task-board />
+    } @else {
+      <app-task-table />
+    }
+  </section>
+</main>
+
+@if (store.toast(); as t) {
+  <div class="toast" [class.error]="t.kind === 'error'" role="status" aria-live="polite">
+    {{ t.text }}
+  </div>
+}
